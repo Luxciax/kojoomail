@@ -281,6 +281,8 @@ a { color: var(--navy); }
 .att .ext { width: 20px; height: 20px; border-radius: 6px; background: var(--accent-soft); color: var(--accent-text); font: 700 8.5px var(--mono); display: inline-flex; align-items: center; justify-content: center; }
 .mail-sheet { margin-top: 18px; border-radius: 12px; overflow: hidden; background: #fff; padding: 16px 18px; box-shadow: 0 0 0 .5px var(--line); }
 .mail-frame { width: 100%; border: 0; display: block; background: #fff; min-height: 60px; }
+.remote-note, .tr-note { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding: 8px 12px; border-radius: 8px; background: var(--well); font-size: 12.5px; color: var(--sec); }
+.tr-note .tr-sub { color: var(--ter); }
 .remote-note { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding: 8px 12px; border-radius: 8px; background: var(--well); font-size: 12.5px; color: var(--sec); }
 
 /* AI 批注卡 */

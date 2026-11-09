@@ -87,7 +87,7 @@ export default function Reader() {
             ))}
           </div>
         )}
-        <MailBody m={m} />
+        <MailBody m={m} key={m.id} />
       </div>
       {menu.node}
     </section>
@@ -312,10 +312,76 @@ function MailBody({ m }: { m: MsgFull }) {
   const frame = useRef<HTMLIFrameElement>(null)
   const [allowRemote, setAllowRemote] = useState(false)
   const [height, setHeight] = useState(80)
-  useEffect(() => { setAllowRemote(s.settings?.remoteImages === 'always'); setHeight(80) }, [m.id])
+  const [tr, setTr] = useState<{ busy: boolean; on: boolean; err: string }>({ busy: false, on: false, err: '' })
+  const [plain, setPlain] = useState<string | null>(null)
+  const origs = useRef<{ n: Text; t: string }[]>([])
+  const curId = useRef(m.id)
+  const docVer = useRef(0)
+  curId.current = m.id
+  const trLang = EN ? 'en' : 'zh'
+  useEffect(() => { setAllowRemote(s.settings?.remoteImages === 'always'); setHeight(80); setPlain(null) }, [m.id])
 
   const hasRemote = useMemo(() => REMOTE_RE.test(m.html), [m.html])
   const doc = useMemo(() => (m.html ? mailDoc(m.html, allowRemote) : ''), [m.html, allowRemote])
+  // 换邮件或正文重新载入（显示图片）后，译文状态作废
+  useEffect(() => { origs.current = []; docVer.current++; setTr({ busy: false, on: false, err: '' }) }, [m.id, doc])
+
+  const acc = s.accounts.find((a) => a.id === m.accountId)
+  const canTr = s.aiConfigured && acc?.aiAllowed !== false
+  const runTr = async () => {
+    if (tr.busy) return
+    const id = m.id
+    if (tr.on) {
+      origs.current.forEach(({ n, t }) => { n.nodeValue = t })
+      origs.current = []
+      setPlain(null)
+      setTr({ busy: false, on: false, err: '' })
+      return
+    }
+    setTr({ busy: true, on: false, err: '' })
+    const snapVer = docVer.current
+    try {
+      if (m.html) {
+        const d = frame.current?.contentDocument
+        if (!d?.body) throw new Error(L('正文还没加载好', 'The body is still loading'))
+        const nodes: { n: Text; t: string }[] = []
+        const w = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT)
+        for (let n = w.nextNode(); n; n = w.nextNode()) {
+          const p = n.parentElement?.tagName
+          if (p === 'STYLE' || p === 'SCRIPT' || p === 'TITLE') continue
+          const t = n.nodeValue || ''
+          if (t.trim()) nodes.push({ n: n as Text, t })
+        }
+        if (!nodes.length) throw new Error(L('没有可翻译的文字', 'Nothing to translate'))
+        const out = await api.aiTranslate(id, trLang, nodes.map((x) => x.t.trim()))
+        if (curId.current !== id || docVer.current !== snapVer) return
+        nodes.forEach(({ n, t }, i) => {
+          const lead = t.match(/^\s*/)![0]
+          const trail = t.match(/\s*$/)![0]
+          n.nodeValue = lead + (out[i] ?? t.trim()) + trail
+        })
+        origs.current = nodes
+      } else {
+        const lines = m.text.split('\n')
+        const idxs = lines.map((l, i) => (l.trim() ? i : -1)).filter((i) => i >= 0)
+        if (!idxs.length) throw new Error(L('没有可翻译的文字', 'Nothing to translate'))
+        const out = await api.aiTranslate(id, trLang, idxs.map((i) => lines[i].trim()))
+        if (curId.current !== id || docVer.current !== snapVer) return
+        idxs.forEach((i, k) => { lines[i] = out[k] ?? lines[i] })
+        setPlain(lines.join('\n'))
+      }
+      setTr({ busy: false, on: true, err: '' })
+    } catch (err) {
+      if (curId.current === id && docVer.current === snapVer) setTr({ busy: false, on: false, err: errText(err) })
+    }
+  }
+  const bar = canTr ? (
+    <div className="tr-note sq">
+      <Icon name="sparkle" size={15} />
+      <span className="grow">{tr.err ? L('翻译没成功：', 'Translation failed: ') + tr.err.slice(0, 120) : tr.busy ? L('正在翻译…', 'Translating…') : tr.on ? <span className="tr-sub">{L('已翻译，原有排版保留', 'Translated, original layout kept')}</span> : ''}</span>
+      <button className="btn link sm" disabled={tr.busy} onClick={runTr}>{tr.on ? L('显示原文', 'Show original') : trLang === 'zh' ? '翻译成中文' : 'Translate to English'}</button>
+    </div>
+  ) : null
 
   const ro = useRef<ResizeObserver | null>(null)
   useEffect(() => () => ro.current?.disconnect(), [])
@@ -351,10 +417,11 @@ function MailBody({ m }: { m: MsgFull }) {
   onClickRef.current = onClick
 
   if (!m.html) {
-    return <div style={{ marginTop: 18, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 'var(--body-size)', lineHeight: 1.75, color: 'var(--ink-2)', userSelect: 'text', maxWidth: 760 }}>{linkify(m.text)}</div>
+    return <>{bar}<div style={{ marginTop: 18, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 'var(--body-size)', lineHeight: 1.75, color: 'var(--ink-2)', userSelect: 'text', maxWidth: 760 }}>{linkify(plain ?? m.text)}</div></>
   }
   return (
     <>
+      {bar}
       {hasRemote && !allowRemote && (
         <div className="remote-note sq">
           <Icon name="image" size={15} />{L('为保护隐私，已拦截远程图片（发件人可以靠它知道你读了信）', 'Remote images blocked for privacy (senders can use them to see that you opened the email)')}

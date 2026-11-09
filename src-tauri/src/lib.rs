@@ -380,6 +380,7 @@ pub fn run() {
             commands::ai_analyze,
             commands::ai_draft,
             commands::ai_rewrite,
+            commands::ai_translate,
             commands::save_settings,
             commands::set_ai_key,
             commands::ai_test,

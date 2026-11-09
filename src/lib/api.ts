@@ -112,6 +112,8 @@ export const api = {
   aiAnalyze: (id: number) => call<void>('ai_analyze', { id }),
   aiDraft: (id: number, tone: string, lang: string, hint: string) => call<string>('ai_draft', { id, tone, lang, hint }),
   aiRewrite: (text: string, op: string, arg: string) => call<string>('ai_rewrite', { text, op, arg }),
+  /** 翻译邮件正文：items 是正文里取出的文字段，按原顺序返回译文（后端按邮件+语言缓存） */
+  aiTranslate: (id: number, lang: string, items: string[]) => call<string[]>('ai_translate', { id, lang, items }),
   saveSettings: (s: Settings) => call<Settings>('save_settings', { s }),
   /** 当前界面语言（「跟随系统」由后端按系统语言定） */
   uiLang: () => call<'zh' | 'en'>('ui_lang'),

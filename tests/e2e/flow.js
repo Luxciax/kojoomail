@@ -119,6 +119,28 @@ async function main() {
       await page.waitForTimeout(800)
       await shot('07-ai-card')
     })
+    await step('翻译邮件（译文、缓存、还原原文）', async () => {
+      const bodyText = async () => ((await page.locator('.mail-frame').count()) ? page.frameLocator('.mail-frame').locator('body').innerText() : page.locator('.reader-scroll .mail-sheet, .reader-scroll > div:last-child').last().innerText())
+      const orig = await bodyText()
+      await page.click('.tr-note .btn:has-text("翻译成中文")')
+      await page.locator('.tr-note').getByText(/已翻译|翻译没成功/).waitFor({ timeout: 120000 })
+      await page.waitForTimeout(500)
+      await shot('07b-translated')
+      const note = await page.locator('.tr-note').innerText()
+      if (note.includes('翻译没成功')) issues.push('翻译失败：' + note)
+      else {
+        const tr = await bodyText()
+        if (tr === orig) issues.push('翻译后正文没有变化')
+        await page.click('.tr-note .btn:has-text("显示原文")')
+        await page.waitForTimeout(500)
+        if ((await bodyText()) !== orig) issues.push('点「显示原文」后正文没有还原')
+        // 再翻一次：应命中缓存，很快出结果
+        const t0 = Date.now()
+        await page.click('.tr-note .btn:has-text("翻译成中文")')
+        await page.locator('.tr-note').getByText('已翻译').waitFor({ timeout: 20000 })
+        log('二次翻译用时', Date.now() - t0, 'ms（命中缓存应很快）')
+      }
+    })
   }
   await step('写信并发给自己', async () => {
     await page.click('[aria-label="写邮件"]')

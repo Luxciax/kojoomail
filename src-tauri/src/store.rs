@@ -123,7 +123,21 @@ CREATE TABLE IF NOT EXISTS ai_usage (day TEXT PRIMARY KEY, count INTEGER NOT NUL
 /// 数据库升级步骤：第 i 个（从 0 数）把数据版本从 i+1 升到 i+2。
 /// 规则：只能在末尾追加；发出去的步骤不能再改（用户的库已经按它升级过了）；步骤里不要提交事务
 type Step = fn(&rusqlite::Transaction) -> rusqlite::Result<()>;
-const MIGRATIONS: &[Step] = &[];
+/// 数据版本 2：邮件译文缓存。一行一段：src 是原文、t 是译文，按（邮件, 语言, 原文）逐条存，翻完一批写一批
+fn v2_translations(tx: &rusqlite::Transaction) -> rusqlite::Result<()> {
+    tx.execute_batch(
+        "CREATE TABLE IF NOT EXISTS translations (\n\
+           msg_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,\n\
+           lang TEXT NOT NULL,\n\
+           src TEXT NOT NULL,\n\
+           t TEXT NOT NULL,\n\
+           model TEXT NOT NULL DEFAULT '',\n\
+           created INTEGER NOT NULL,\n\
+           PRIMARY KEY (msg_id, lang, src)\n\
+         );",
+    )
+}
+const MIGRATIONS: &[Step] = &[v2_translations];
 /// 当前代码对应的数据版本
 const LATEST: i64 = MIGRATIONS.len() as i64 + 1;
 

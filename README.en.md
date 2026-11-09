@@ -47,6 +47,7 @@ The AI reads every new email and writes a note at the top:
 - **Key facts as cards**: quantity, price, trade terms, payment terms, deadlines, all in one view instead of buried in a long email
 - **To-dos**: anything the email asks you to do, listed with its due date
 - **A suggested reply**, drafted in the sender's language (English in, English out); click "填入回复" (Use reply) to edit it
+- **Translation**: click "Translate to English" above the body; the original layout and links are kept and you can switch back any time. It only runs when you click, and translations are cached
 
 Notifications and newsletters are sorted by local rules without calling the model, so they cost you nothing.
 
